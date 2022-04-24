@@ -1,0 +1,6 @@
+# initialise kube cluster
+
+- import_playbook: user.yaml
+- import_playbook: dependencies.yaml
+- import_playbook: control_plane.yaml
+- import_playbook: workers.yaml

@@ -1,0 +1,22 @@
+# setup worker nodes
+
+# first we get the command required for registering worker nodes
+- hosts: control_plane
+  become: yes
+  tasks:
+  - name: get kubeadm join command
+    shell: kubeadm token create --print-join-command
+    register: join_command_raw
+  - name: set join command
+    set_fact:
+      join_command: "{{ join_command_raw.stdout_lines[0] }}"
+
+# then we use it to join all the worker nodes to the cluster
+- hosts: workers
+  become: yes
+  tasks:
+  - name: join workers
+    shell: "{{ hostvars['control_plane'].join_command }} >> node_join.txt"
+    args:
+      chdir: $HOME
+      creates: node_join.txt

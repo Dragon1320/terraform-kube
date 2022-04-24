@@ -1,0 +1,24 @@
+# setup dev user with passwordless login/sudo on all hosts
+
+- hosts: all
+  become: yes
+  tasks:
+  - name: create dev user
+    user:
+      name: dev
+      groups: wheel
+      state: present
+      createhome: yes
+      shell: /bin/bash
+
+  - name: allow dev sudo
+    lineinfile:
+      dest: /etc/sudoers
+      line: "dev ALL=(ALL) NOPASSWD: ALL"
+      validate: "visudo -cf %s"
+
+  - name: add dev pub key
+    authorized_key:
+      user: dev
+      state: present
+      key: "{{ lookup('file', pub_key) }}"

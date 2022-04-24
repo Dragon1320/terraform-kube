@@ -1,0 +1,9 @@
+[control_plane]
+# assuming there will only be a single control plane node
+# aliasing this here so we can refer to it later for kubeadm join
+control_plane ansible_host=${control_plane}
+
+[workers]
+%{ for ip in workers ~}
+${ip}
+%{ endfor ~}

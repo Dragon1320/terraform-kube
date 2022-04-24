@@ -1,0 +1,38 @@
+# setup control plane
+
+- hosts: control_plane
+  become: yes
+  tasks:
+  # init kubeadm
+  # WARN: if this fails, ansible will not re-run it
+  - name: initialise cluster
+    # pod network cidr compatible with that hardcoded by flannel
+    # might want to change this if intending to use another cni
+    shell: kubeadm init --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors=Mem,NumCPU >> cluster_init.txt
+    args:
+      chdir: $HOME
+      creates: cluster_init.txt
+
+  # setup dev config
+  - name: create .kube dir
+    become: yes
+    become_user: dev
+    file:
+      path: $HOME/.kube
+      state: directory
+      mode: 0755
+  - name: copy admin config
+    copy:
+      src: /etc/kubernetes/admin.conf
+      dest: /home/dev/.kube/config
+      remote_src: yes
+      owner: dev
+
+  # install pod network
+  - name: install cni
+    become: yes
+    become_user: dev
+    shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml >> cni_init.txt
+    args:
+      chdir: $HOME
+      creates: cni_init.txt

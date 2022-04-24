@@ -1,0 +1,92 @@
+# setup kube dependencies
+
+# install container runtime and kubelet on all hosts
+- hosts: all
+  become: yes
+  tasks:
+  # add repos
+  - name: add docker repo
+    yum_repository:
+      name: docker
+      description: docker repo
+      state: present
+      baseurl: https://download.docker.com/linux/centos/7/x86_64/stable/
+      gpgkey: https://download.docker.com/linux/centos/gpg
+  - name: add kubernetes repo
+    yum_repository:
+      name: kube
+      description: kubernetes repo
+      state: present
+      baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+      gpgkey:
+      - https://packages.cloud.google.com/yum/doc/yum-key.gpg
+      - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+
+  # install packages
+  - name: install containerd
+    yum:
+      name: containerd.io
+      state: present
+  - name: install kubelet
+    yum:
+      name: kubelet
+      state: present
+  - name: install kubeadm
+    yum:
+      name: kubeadm
+      state: present
+
+  # configure containerd, and set its cgroup driver as systemd
+  # ref: https://kubernetes.io/docs/setup/production-environment/container-runtimes/
+  - name: configure containerd base
+    copy:
+      dest: /etc/modules-load.d/containerd.conf
+      content: |
+        overlay
+        br_netfilter
+  - name: configure kube cri
+    copy:
+      dest: /etc/sysctl.d/99-kubernetes-cri.conf
+      content: |
+        net.bridge.bridge-nf-call-iptables = 1
+        net.ipv4.ip_forward = 1
+        net.bridge.bridge-nf-call-ip6tables = 1
+  - name: configure containerd to use systemd cgroup driver
+    copy:
+      dest: /etc/containerd/config.toml
+      content: |
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+            SystemdCgroup = true
+
+  # kubeadm should set the cgroup driver of kubelet to systemd by default - we dont need to configure it here
+  # ref: https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/configure-cgroup-driver/
+
+  # enable services, no need to restart here for config to take effect as were doing a reboot later
+  - name: enable containerd
+    service:
+      name: containerd
+      enabled: yes
+  - name: enable kubelet
+    service:
+      name: kubelet
+      enabled: yes
+
+  # enable cgroups v2
+  - name: install grubby
+    yum:
+      name: grubby
+      state: present
+  - name: enable cgroup v2 for systemd
+    shell: grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=1"
+  - name: reboot to apply cgroup changes
+    reboot:
+
+# install kubectl on control plane only
+- hosts: control_plane
+  become: yes
+  tasks:
+  - name: install kubectl
+    yum:
+      name: kubectl
+      state: present
