@@ -1,6 +1,6 @@
 # terraform-plaything
 
-provision digitalocean servers and set up kubernetes server
+provision digitalocean servers and set up kubernetes cluster
 
 required:
 - digitalocean token
